@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using PostgresAPI.Models;
 using Microsoft.EntityFrameworkCore;
+using PostgresAPI.Models;
+using System.Net;
 
 namespace WebApplication1.Controllers
 {
@@ -49,10 +50,19 @@ namespace WebApplication1.Controllers
         [HttpPost("CreateActor")]
         public async Task<IActionResult> CreateActor([FromBody] Actor actor)
         {
+            if (actor == null)
+                return BadRequest("Invalid Request");
+
+            actor.LastUpdate = DateTime.UtcNow;
             _context.Actor.Add(actor);
             await _context.SaveChangesAsync();
 
-            return Ok(actor);
+            return CreatedAtAction(
+                nameof(CreateActor),
+                new { id = actor.Id },
+                actor
+                );
+
         }
 
         [HttpPut("EditActor")]
