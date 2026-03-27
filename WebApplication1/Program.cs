@@ -29,6 +29,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapGet("/cities",CityController.GetAllCities);
+app.MapGet("/cities/{id}", CityController.GetCityById);
 
 app.MapControllers();
 
