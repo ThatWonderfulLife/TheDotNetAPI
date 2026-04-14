@@ -28,8 +28,13 @@ app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
-app.MapGet("/cities",CityController.GetAllCities);
-app.MapGet("/cities/{id}", CityController.GetCityById);
+var api = app.MapGroup("/api");
+
+
+app.MapGroup("/api/city").MapCityEndpoints().WithTags("City");
+app.MapGroup("/api/address").MapAddressEndpoints().WithTags("Address");
+app.MapGroup("/api/actor").MapActorEndpoints().WithTags("Actor");
+app.MapGroup("/api/category").MapCategoryEndpoints().WithTags("Category");
 
 app.MapControllers();
 

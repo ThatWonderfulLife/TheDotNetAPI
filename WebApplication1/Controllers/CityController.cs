@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PostgresAPI.Models;
-using System.Net;
+
 
 namespace WebApplication1.Controllers
 {
@@ -37,7 +37,7 @@ namespace WebApplication1.Controllers
             }
             context.City.Add(city);
             await context.SaveChangesAsync();
-            return TypedResults.CreatedAtRoute($"/api/cities/{city.Id}", city);
+            return TypedResults.CreatedAtRoute($"/api/city/{city.Id}", city);
         }
 
         public static async Task<Results<Ok, NotFound>> EditCity([FromServices] AppDbContext context, int id, [FromBody] City city)
@@ -65,20 +65,31 @@ namespace WebApplication1.Controllers
             return TypedResults.Ok();
         }
 
-        public static async Task<Results<Ok<City>, BadRequest>> GetCitiesByCountryId([FromServices] AppDbContext context, int id)
+        public static async Task<Results<Ok<List<City>>, BadRequest>> GetCitiesByCountryId([FromServices] AppDbContext context, int id)
         {
             if (id <= 0)
             {
                 return (TypedResults.BadRequest());
             }
-            var city = await context.City.FindAsync(id);
+            var cities = await context.City.Where(c => c.CountryId == id).ToListAsync();
 
-            if (city == null)
+            if (cities == null)
             {
                 return TypedResults.BadRequest();
             }
 
-            return TypedResults.Ok(city);
+            return TypedResults.Ok(cities);
+        }
+
+        public static RouteGroupBuilder MapCityEndpoints(this RouteGroupBuilder group)
+        {
+            group.MapGet("/", CityController.GetAllCities);
+            group.MapGet("/{id}", CityController.GetCityById);
+            group.MapPost("/", CityController.CreateCity);
+            group.MapPut("/{id}", CityController.EditCity);
+            group.MapDelete("/{id}", CityController.DeleteCity);
+            return group;
         }
     }
+
 }
