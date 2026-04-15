@@ -29,31 +29,53 @@ namespace WebApplication1.Controllers
             return TypedResults.Ok(cities);
         }
 
-        public static async Task<Results<CreatedAtRoute, BadRequest>> CreateCity([FromServices] AppDbContext context, [FromBody] City city)
+        public static async Task<Results<Created<City>, BadRequest>> CreateCity([FromServices] AppDbContext context,[FromBody] City city)
         {
             if (city == null)
             {
                 return TypedResults.BadRequest();
             }
-            context.City.Add(city);
+
+            var city1 = new City
+            {
+                CityName = city.CityName,
+                CountryId = city.CountryId,
+                LastUpdate = DateTime.UtcNow
+            };
+
+            context.City.Add(city1);
             await context.SaveChangesAsync();
-            return TypedResults.CreatedAtRoute($"/api/city/{city.Id}", city);
+
+            return TypedResults.Created($"/api/city/{city1.Id}", city1);
         }
 
-        public static async Task<Results<Ok, NotFound>> EditCity([FromServices] AppDbContext context, int id, [FromBody] City city)
+        public static async Task<Results<Ok<City>, BadRequest, NotFound>> EditCity([FromServices] AppDbContext context, [FromRoute] int id, [FromBody] City city)
         {
+            if (id <= 0)
+            {
+                return TypedResults.BadRequest();
+            }
+            if (city == null)
+            {
+                return TypedResults.BadRequest();
+            }
+
             var selectedCity = await context.City.FindAsync(id);
             if (selectedCity == null)
             {
                 return TypedResults.NotFound();
             }
+
             selectedCity.CityName = city.CityName;
+            selectedCity.CountryId = city.CountryId;
             selectedCity.LastUpdate = DateTime.UtcNow;
+
             await context.SaveChangesAsync();
-            return TypedResults.Ok();
+
+            return TypedResults.Ok(selectedCity);
         }
 
-        public static async Task<Results<Ok, NotFound>> DeleteCity([FromServices] AppDbContext context, int id)
+        public static async Task<Results<NoContent, NotFound>> DeleteCity([FromServices] AppDbContext context, int id)
         {
             var city = await context.City.FindAsync(id);
             if (city == null)
@@ -62,7 +84,7 @@ namespace WebApplication1.Controllers
             }
             context.City.Remove(city);
             await context.SaveChangesAsync();
-            return TypedResults.Ok();
+            return TypedResults.NoContent();
         }
 
         public static async Task<Results<Ok<List<City>>, BadRequest>> GetCitiesByCountryId([FromServices] AppDbContext context, int id)
@@ -88,6 +110,7 @@ namespace WebApplication1.Controllers
             group.MapPost("/", CityController.CreateCity);
             group.MapPut("/{id}", CityController.EditCity);
             group.MapDelete("/{id}", CityController.DeleteCity);
+            group.MapGet("/country/{id}", CityController.GetCitiesByCountryId);
             return group;
         }
     }

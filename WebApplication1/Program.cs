@@ -31,12 +31,10 @@ app.UseAuthorization();
 var api = app.MapGroup("/api");
 
 
-app.MapGroup("/api/city").MapCityEndpoints().WithTags("City");
-app.MapGroup("/api/address").MapAddressEndpoints().WithTags("Address");
-app.MapGroup("/api/actor").MapActorEndpoints().WithTags("Actor");
-app.MapGroup("/api/category").MapCategoryEndpoints().WithTags("Category");
-
-app.MapControllers();
+api.MapGroup("/city").MapCityEndpoints().WithTags("City");
+//api.MapGroup("/address").MapAddressEndpoints().WithTags("Address");
+//api.MapGroup("/actor").MapActorEndpoints().WithTags("Actor");
+//api.MapGroup("/category").MapCategoryEndpoints().WithTags("Category");
 
 
 app.Run();
