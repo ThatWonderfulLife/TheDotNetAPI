@@ -26,7 +26,31 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    // Libera GET sem autenticação
+    if (context.Request.Method == "GET")
+    {
+        await next();
+        return;
+    }
+
+    // Verifica API Key para POST, PUT, DELETE
+    var apiKey = context.Request.Headers["API-Key"].ToString();
+
+    if (apiKey != "minha-chave-api")
+    {
+        context.Response.StatusCode = 401;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "Acesso negado",
+            message = "API Key inválida ou não fornecida. Use o header: X-API-Key"
+        });
+        return;
+    }
+
+    await next();
+});
 
 var api = app.MapGroup("/api");
 
