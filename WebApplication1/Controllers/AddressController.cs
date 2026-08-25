@@ -1,106 +1,83 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using PostgresAPI.Models;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using PostgresAPI.Models;
+
 
 namespace WebApplication1.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class AddressController : ControllerBase
+    public static class AddressController
     {
-        private readonly AppDbContext _context;
-
-        public AddressController(AppDbContext context)
+        public static async Task<Results<Ok<Address>, BadRequest>> GetAddressById([FromServices] AppDbContext context, int id)
         {
-            _context = context;
-        }
-
-        [HttpGet("GetAddresses")]
-        public async Task<IActionResult> GetAddresses()
-        {
-            var result = await _context.Address.Select(x => new Address
+            if (id <= 0)
             {
-                Id = x.Id,
-                Address1 = x.Address1,
-                Address2 = x.Address2,
-                District = x.District,
-                CityId = x.CityId,
-                PostalCode = x.PostalCode,
-                Phone = x.Phone,
-                LastUpdate = x.LastUpdate
-            }).ToListAsync();
-
-            return Ok(result);
-        }
-
-
-        [HttpGet("GetAddressById")]
-        public async Task<IActionResult> GetAddressById(int addressId)
-        {
-            var address = await _context.Address.Where(x => x.Id == addressId).Select(x => new Address
-            {
-                Id = x.Id,
-                Address1 = x.Address1,
-                Address2 = x.Address2,
-                District = x.District,
-                CityId = x.CityId,
-                PostalCode = x.PostalCode,
-                Phone = x.Phone,
-                LastUpdate = x.LastUpdate
-            }).FirstOrDefaultAsync();
+                return (TypedResults.BadRequest());
+            }
+            var address = await context.Address.FindAsync(id);
 
             if (address == null)
-                return NotFound();
+            {
+                return TypedResults.BadRequest();
+            }
 
-            return Ok(address);
+            return TypedResults.Ok(address);
+        }
+        public static async Task<Ok<List<Address>>> GetAllAddresses([FromServices] AppDbContext context)
+        {
+            var address = await context.Address.ToListAsync();
+            return TypedResults.Ok(address);
         }
 
-        [HttpPost("CreateAddress")]
-        public async Task<IActionResult> CreateAddress([FromBody] Address address)
+        public static async Task<Results<CreatedAtRoute, BadRequest>> CreateAddress([FromServices] AppDbContext context, [FromBody] Address address)
         {
-
-            if(address == null)
-                return BadRequest("Invalid Request");
-
-            address.LastUpdate = DateTime.UtcNow;
-            _context.Address.Add(address);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(
-                nameof(CreateAddress),
-                new { id = address.Id },
-                address
-            );
+            if (address == null)
+            {
+                return TypedResults.BadRequest();
+            }
+            context.Address.Add(address);
+            await context.SaveChangesAsync();
+            return TypedResults.CreatedAtRoute($"/api/address/{address.Id}", address);
         }
 
-        [HttpPut("EditAddress")]
-        public async Task<IActionResult> EditAddress([FromBody] Address address)
+        public static async Task<Results<Ok, NotFound>> EditAddress([FromServices] AppDbContext context, int id, [FromBody] Address address)
         {
-            var rows = await _context.Address.Where(x => x.Id == address.Id)
-                .ExecuteUpdateAsync(update => update
-                .SetProperty(x => x.Address1, address.Address1)
-                .SetProperty(x => x.Address2, address.Address2)
-                .SetProperty(x => x.District, address.District)
-                .SetProperty(x => x.CityId, address.CityId)
-                .SetProperty(x => x.PostalCode, address.PostalCode)
-                .SetProperty(x => x.Phone, address.Phone)
-                .SetProperty(x => x.LastUpdate, DateTime.UtcNow)
-                );
-            if (rows == 0)
-                return NotFound();
-
-            return Ok(rows);
+            var selectedAddress = await context.Address.FindAsync(id);
+            if (selectedAddress == null)
+            {
+                return TypedResults.NotFound();
+            }
+            selectedAddress.Address1 = address.Address1;
+            selectedAddress.Address2 = address.Address2;
+            selectedAddress.District = address.District;
+            selectedAddress.CityId = address.CityId;
+            selectedAddress.PostalCode = address.PostalCode;
+            selectedAddress.Phone = address.Phone;
+            selectedAddress.LastUpdate = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+            return TypedResults.Ok();
         }
 
-        [HttpDelete("DeleteAddress")]
-        public async Task<IActionResult> DeleteAddress(int addressId)
+        public static async Task<Results<Ok, NotFound>> DeleteAddress([FromServices] AppDbContext context, int id)
         {
-            var rows = await _context.Address.Where(x => x.Id == addressId).ExecuteDeleteAsync();
+            var address = await context.Address.FindAsync(id);
+            if (address == null)
+            {
+                return TypedResults.NotFound();
+            }
+            context.Address.Remove(address);
+            await context.SaveChangesAsync();
+            return TypedResults.Ok();
+        }
 
-            if (rows == 0)
-                return NotFound();
-
-            return Ok(true);
+        public static RouteGroupBuilder MapAddressEndpoints(this RouteGroupBuilder group)
+        {
+            group.MapGet("/", AddressController.GetAllAddresses);
+            group.MapGet("/{id}", AddressController.GetAddressById);
+            group.MapPost("/", AddressController.CreateAddress);
+            group.MapPut("/{id}", AddressController.EditAddress);
+            group.MapDelete("/{id}", AddressController.DeleteAddress);
+            return group;
         }
 
     }

@@ -4,6 +4,7 @@ using PostgresAPI.Models;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Scalar.AspNetCore;
+using WebApplication1.Controllers;
 var builder = WebApplication.CreateBuilder(args);
 
 
@@ -25,21 +26,40 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
-
-app.MapControllers();
-
-static async Task<Results<Ok<City>,BadRequest>> getCityById([FromServices] AppDbContext context, int id)
+app.Use(async (context, next) =>
 {
-    if(id <= 0)
+    // Libera GET sem autenticação
+    if (context.Request.Method == "GET")
     {
-        return (TypedResults.BadRequest());
+        await next();
+        return;
     }
-    var cities = await context.City.FindAsync(id);
-    return TypedResults.Ok(cities);
-}
 
-app.MapGet("/city/{id}",getCityById);
+    // Verifica API Key para POST, PUT, DELETE
+    var apiKey = context.Request.Headers["API-Key"].ToString();
+
+    if (apiKey != "minha-chave-api")
+    {
+        context.Response.StatusCode = 401;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            error = "Acesso negado",
+            message = "API Key inválida ou não fornecida. Use o header: X-API-Key"
+        });
+        return;
+    }
+
+    await next();
+});
+
+var api = app.MapGroup("/api");
+
+
+api.MapGroup("/city").MapCityEndpoints().WithTags("City");
+//api.MapGroup("/address").MapAddressEndpoints().WithTags("Address");
+//api.MapGroup("/actor").MapActorEndpoints().WithTags("Actor");
+//api.MapGroup("/category").MapCategoryEndpoints().WithTags("Category");
+
 
 app.Run();
 

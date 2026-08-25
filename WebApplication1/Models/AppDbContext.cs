@@ -11,5 +11,6 @@ public class AppDbContext : DbContext
     public DbSet<Category> Category { get; set; }
     public DbSet<Address> Address { get; set; }
     public DbSet<City> City { get; set; }
+    public DbSet<Country> Country { get; set; }
 
 }

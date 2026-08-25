@@ -1,23 +1,9 @@
 @rootURL = http://localhost:5005
 
-GET {{rootURL}}/weatherforecast/
+GET {{rootURL}}/dotnetapi/
 Accept: application/json
 
 ###
 
-GET {{rootURL}}/api/books
+GET {{rootURL}}/api/City
 Accept:application/json
-
-###
-GET {{rootURL}}/api/books/6
-Accept:application/json
-
-###
-POST {{rootURL}}/api/books
-Content-Type:application/json
-{
-  "id": 6,
-  "title": "Title6",
-  "author": "Author6",
-  "year": 2009
-}

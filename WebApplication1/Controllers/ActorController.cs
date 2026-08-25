@@ -1,95 +1,80 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PostgresAPI.Models;
 using System.Net;
+using System.Numerics;
 
 namespace WebApplication1.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class ActorController : ControllerBase
+    public static class ActorController
     {
-        private readonly AppDbContext _context;
-
-        public ActorController(AppDbContext context)
+        public static async Task<Results<Ok<Actor>, BadRequest>> GetActorById([FromServices] AppDbContext context, int id)
         {
-            _context = context;
-        }
-
-        [HttpGet("GetActors")]
-        public async Task<IActionResult> GetActors() {
-            var result = await _context.Actor.Select(x => new Actor
+            if (id <= 0)
             {
-                Id = x.Id,
-                FirstName = x.FirstName,
-                LastName = x.LastName,
-                LastUpdate = x.LastUpdate
-            }).ToListAsync();
-
-            return Ok(result);
-        }
-
-
-        [HttpGet("GetActorById")]
-        public async Task<IActionResult> GetActorById(int actorId)
-        {
-            var actor = await _context.Actor.Where(x => x.Id == actorId).Select(x => new Actor
-            {
-                Id = x.Id,
-                FirstName = x.FirstName,
-                LastName = x.LastName,
-                LastUpdate = x.LastUpdate
-            }).FirstOrDefaultAsync();
+                return (TypedResults.BadRequest());
+            }
+            var actor = await context.Actor.FindAsync(id);
 
             if (actor == null)
-                return NotFound();
+            {
+                return TypedResults.BadRequest();
+            }
 
-            return Ok(actor);
+            return TypedResults.Ok(actor);
+        }
+        public static async Task<Ok<List<Actor>>> GetAllActor([FromServices] AppDbContext context)
+        {
+            var actor = await context.Actor.ToListAsync();
+            return TypedResults.Ok(actor);
         }
 
-        [HttpPost("CreateActor")]
-        public async Task<IActionResult> CreateActor([FromBody] Actor actor)
+        public static async Task<Results<CreatedAtRoute, BadRequest>> CreateActor([FromServices] AppDbContext context, [FromBody] Actor actor)
         {
             if (actor == null)
-                return BadRequest("Invalid Request");
-
-            actor.LastUpdate = DateTime.UtcNow;
-            _context.Actor.Add(actor);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(
-                nameof(CreateActor),
-                new { id = actor.Id },
-                actor
-                );
-
+            {
+                return TypedResults.BadRequest();
+            }
+            context.Actor.Add(actor);
+            await context.SaveChangesAsync();
+            return TypedResults.CreatedAtRoute($"/api/actor/{actor.Id}", actor);
         }
 
-        [HttpPut("EditActor")]
-        public async Task<IActionResult> EditActor([FromBody] Actor actor)
+        public static async Task<Results<Ok, NotFound>> EditActor([FromServices] AppDbContext context, int id, [FromBody] Actor actor)
         {
-            var rows = await _context.Actor.Where(x => x.Id == actor.Id)
-                .ExecuteUpdateAsync(update => update
-                .SetProperty(x => x.FirstName, actor.FirstName)
-                .SetProperty(x => x.LastName , actor.LastName)
-                .SetProperty(x => x.LastUpdate,DateTime.UtcNow)
-                );
-            if (rows == 0)
-                return NotFound();
-
-            return Ok(actor);
+            var selectedActor = await context.Actor.FindAsync(id);
+            if (selectedActor == null)
+            {
+                return TypedResults.NotFound();
+            }
+            selectedActor.FirstName = actor.FirstName;
+            selectedActor.LastName = actor.LastName;
+            selectedActor.LastUpdate = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+            return TypedResults.Ok();
         }
 
-        [HttpDelete("DeleteActor")]
-        public async Task<IActionResult> DeleteActor (int actorID)
+        public static async Task<Results<Ok, NotFound>> DeleteActor([FromServices] AppDbContext context, int id)
         {
-            var rows = await _context.Actor.Where(x => x.Id == actorID).ExecuteDeleteAsync();
-
-            if (rows == 0)
-                return NotFound();
-
-            return Ok(true);
+            var actor = await context.Actor.FindAsync(id);
+            if (actor == null)
+            {
+                return TypedResults.NotFound();
+            }
+            context.Actor.Remove(actor);
+            await context.SaveChangesAsync();
+            return TypedResults.Ok();
         }
 
+        public static RouteGroupBuilder MapActorEndpoints(this RouteGroupBuilder group)
+        {
+            group.MapGet("/", ActorController.GetAllActor);
+            group.MapGet("/{id}", ActorController.GetActorById);
+            group.MapPost("/", ActorController.CreateActor);
+            group.MapPut("/{id}", ActorController.EditActor);
+            group.MapDelete("/{id}", ActorController.DeleteActor);
+            return group;
+        }
     }
 }

@@ -1,92 +1,78 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PostgresAPI.Models;
 using System.Net;
 
 namespace WebApplication1.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class CategoryController : ControllerBase
+    public static class CategoryController
     {
-        private readonly AppDbContext _context;
-
-        public CategoryController(AppDbContext context)
+        public static async Task<Results<Ok<Category>, BadRequest>> GetCategoryById([FromServices] AppDbContext context, int id)
         {
-            _context = context;
-        }
-
-        [HttpGet("GetCategories")]
-        public async Task<IActionResult> GetCategories()
-        {
-            var result = await _context.Category.Select(x => new Category
+            if (id <= 0)
             {
-                Id = x.Id,
-                Name = x.Name,
-                LastUpdate = x.LastUpdate
-            }).ToListAsync();
-
-            return Ok(result);
-        }
-
-
-        [HttpGet("GetCategoryById")]
-        public async Task<IActionResult> GetCategoryById(int categoryId)
-        {
-            var category = await _context.Category.Where(x => x.Id == categoryId).Select(x => new Category
-            {
-                Id = x.Id,
-                Name = x.Name,
-                LastUpdate = x.LastUpdate
-            }).FirstOrDefaultAsync();
+                return (TypedResults.BadRequest());
+            }
+            var category = await context.Category.FindAsync(id);
 
             if (category == null)
-                return NotFound();
+            {
+                return TypedResults.BadRequest();
+            }
 
-            return Ok(category);
+            return TypedResults.Ok(category);
+        }
+        public static async Task<Ok<List<Category>>> GetAllCategories([FromServices] AppDbContext context)
+        {
+            var category = await context.Category.ToListAsync();
+            return TypedResults.Ok(category);
         }
 
-        [HttpPost("CreateCategory")]
-        public async Task<IActionResult> CreateCategory([FromBody] Category category)
+        public static async Task<Results<CreatedAtRoute, BadRequest>> CreateCategory([FromServices] AppDbContext context, [FromBody] Category category)
         {
             if (category == null)
-                return BadRequest("Invalid Request");
-
-            category.LastUpdate = DateTime.UtcNow;
-            _context.Category.Add(category);
-            await _context.SaveChangesAsync();
-
-
-            return CreatedAtAction(
-                nameof(CreateCategory),
-                new { id = category.Id },
-                category
-                );
+            {
+                return TypedResults.BadRequest();
+            }
+            context.Category.Add(category);
+            await context.SaveChangesAsync();
+            return TypedResults.CreatedAtRoute($"/api/category/{category.Id}", category);
         }
 
-        [HttpPut("EditCategory")]
-        public async Task<IActionResult> EditCategory([FromBody] Category category)
+        public static async Task<Results<Ok, NotFound>> EditCategory([FromServices] AppDbContext context, int id, [FromBody] Category category)
         {
-            var rows = await _context.Category.Where(x => x.Id == category.Id)
-                .ExecuteUpdateAsync(update => update
-                .SetProperty(x => x.Name, category.Name)
-                .SetProperty(x => x.LastUpdate, DateTime.UtcNow)
-                );
-            if (rows == 0)
-                return NotFound();
-
-            return Ok(category);
+            var selectedCategory = await context.Category.FindAsync(id);
+            if (selectedCategory == null)
+            {
+                return TypedResults.NotFound();
+            }
+            selectedCategory.Name = category.Name;
+            selectedCategory.LastUpdate = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+            return TypedResults.Ok();
         }
 
-        [HttpDelete("DeleteCategory")]
-        public async Task<IActionResult> DeleteCategory(int categoryId)
+        public static async Task<Results<Ok, NotFound>> DeleteCategory([FromServices] AppDbContext context, int id)
         {
-            var rows = await _context.Category.Where(x => x.Id == categoryId).ExecuteDeleteAsync();
+            var category = await context.Category.FindAsync(id);
+            if (category == null)
+            {
+                return TypedResults.NotFound();
+            }
+            context.Category.Remove(category);
+            await context.SaveChangesAsync();
+            return TypedResults.Ok();
+        }
 
-            if (rows == 0)
-                return NotFound();
-
-            return Ok(true);
+        public static RouteGroupBuilder MapCategoryEndpoints(this RouteGroupBuilder group)
+        {
+            group.MapGet("/", CategoryController.GetAllCategories);
+            group.MapGet("/{id}", CategoryController.GetCategoryById);
+            group.MapPost("/", CategoryController.CreateCategory);
+            group.MapPut("/{id}", CategoryController.EditCategory);
+            group.MapDelete("/{id}", CategoryController.DeleteCategory);
+            return group;
         }
 
     }

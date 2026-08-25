@@ -11,7 +11,7 @@ public class Address
     public string Address1 { get; set; }
 
     [Column("address2")]
-    public string Address2 { get; set; }
+    public string ? Address2 { get; set; }
 
     [Column("district")]
     public string District { get; set; }
